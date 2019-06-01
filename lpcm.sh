@@ -284,9 +284,7 @@ elif [[ ${METHOD} == "generate" ]]; then
        GMPWD=""
 
     if [[ $SAVE_MPWD == 1 ]]; then
-
-        GMPWD=$(get ${MPW_ENV})
-
+        GMPWD="${!MPWD_VAR}"
 
         if [[ $MPWD == "" ]]; then
             #GMPWD==?
@@ -347,7 +345,7 @@ elif [[ ${METHOD} == "generate" ]]; then
         if [[ $SAVE_MPWD == 1 ]]; then
 
 
-        set $MPW_ENV "$MPWD"
+            export $MPWD_VAR="$MPWD"
 
         fi
 
