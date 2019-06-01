@@ -254,22 +254,25 @@ REMOVE_FROM_HISTORY=${RM_HIST}
 elif [[ ${METHOD} == "generate" ]]; then
 
 
-    SITE=$1
-    LOGIN=$2
-    SYMBOLS=$3
-    LOWER=$4
-    UPPER=$5
-    LENGTH=$6
-    COPY=$7
-    SALT=$8
-    DELIMITER=$9
-    CHECK=${10}
-    CHECK_P=${11}
-    SAVE_MPWD=${12}
-    MPWD_VAR=${13}
-    MPWD=${14}
+    SITE=$2
+    LOGIN=$3
+    SYMBOLS=$4
+    LOWER=$5
+    UPPER=$6
+    DIGITS=$7
+    LENGTH=$8
+    COPY=$9
+    SALT=${10}
+    DELIMITER=${11}
+    CHECK=${12}
+    CHECK_P=${13}
 
-    RM_HIST=${15}
+    SAVE_MPWD=${14}
+    MPWD_VAR=${15}
+    MPWD=${16}
+
+    RM_HIST=${17}
+
 
     if [[ $RM_HIST != 0 ]]; then
 
