@@ -283,8 +283,6 @@ elif [[ ${METHOD} == "generate" ]]; then
 
        GMPWD=""
 
-
-
     if [[ $SAVE_MPWD == 1 ]]; then
 
         GMPWD=$(get ${MPW_ENV})
@@ -318,36 +316,47 @@ elif [[ ${METHOD} == "generate" ]]; then
 
         fi
 
-        if [[ MPWD == "" ]]; then
-
-
-
-            read -p "Enter masterpassword: " -s
-
-            MPWD=$REPLY
-
-        fi
 
     fi
+
+     if [[ $MPWD == "" ]]; then
+
+
+            read -p "Enter masterpassword: " -s MPWD
+            echo
+
+        fi
 
 
     CHECKED=$(lesspass check check "$MPWD" -L5 -d)
 
+
+    CONT=1
+
     if [[ $CHECK == 1 && $CHECKED != $CHECK_P ]]; then
 
        echo "Check failed"
-       exit 1
+       #exit 1
+       CONT=0
     fi
 
 
-    if [[ $SAVE_MPWD == 1 ]]; then
+
+    if [[ $CONT == 1 ]]; then
+
+        if [[ $SAVE_MPWD == 1 ]]; then
 
 
         set $MPW_ENV "$MPWD"
 
+        fi
+
+
+
+
+
+
     fi
-
-
 
 
 
