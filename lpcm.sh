@@ -2,11 +2,6 @@
 
 METHOD=$1
 
-#echo "${0##*/}"
-#echo ${PWD}
-#echo $1
-#echo $0
-
 if [[ ${METHOD} == "create" ]]; then
 
 
@@ -128,16 +123,28 @@ if [[ ${METHOD} == "create" ]]; then
 
             fi
 
-            read -p "Remove from history? (0=disable; 1=enabled; 2=only if masterpasspassword in arguments) (default:2): " -r
+            read -p "Remove from history? (0=disable; 1=enabled; 2=only if masterpasspassword in arguments; 3=remove masterpassword from history) (default:3): " -r
             echo
 
-            RM_HIST=2
+            RM_HIST=3
 
             if [[ $REPLY =~ ^[012]$ ]]; then
 
                 RM_HIST=$REPLY
 
             fi
+
+
+            read -p "Pipe the password into a command? (0=disabled; 1=only pipe, ignores copy; 2=pipe and terminal out) (default:0)" -r
+
+          if [[ $REPLY =~ ^[012]$ ]]; then
+
+            PIPE=$REPLY
+
+            read -p "Enter command: " -r
+            PIPE_COMMAND=$REPLY
+
+          fi
 
 
         fi
@@ -157,6 +164,8 @@ LOWER=${LOWER}
 UPPER=${UPPER}
 DIGITS=${DIGITS}
 LENGTH=${LENGTH}
+
+COUNT=${COUNT}
 
 COPY_TO_CLIPBOARD=${COPY}
 
@@ -179,11 +188,19 @@ SAVE_MASTER_PASSWORD=${MASTERPASSWORD}
 CUSTOM_MASTER_PASSWORD_VAR=\"${MPW_ENV}\"
 
 
-#0=disable; 1=enabled; 2=only if masterpasspassword in arguments
+#0=disable; 1=enabled; 2=only if masterpasspassword in arguments; 3=remove masterpassword from history
 REMOVE_FROM_HISTORY=${RM_HIST}
 
 
-{PATH} generate \$SITE \$LOGIN \$SYMBOLS \$LOWER \$UPPER \$DIGITS \$LENGTH \$COPY_TO_CLIPBOARD \$SALT \$SALT_DELIMITER \$CHECK \$CUSTOM_CHECK \$SAVE_MASTER_PASSWORD \$CUSTOM_MASTER_PASSWORD_VAR
+#0=disabled; 1=only pipe; 2=pipe and terminal out
+#1 disables copy
+
+PIPE_OUTPUT=${PIPE}
+PIPE_COMMAND=${PIPE_COMMAND}
+
+. {PATH} generate \$SITE \$LOGIN \$SYMBOLS \$LOWER \$UPPER \$DIGITS \$LENGTH \$COPY_TO_CLIPBOARD \$SALT \"\$SALT_DELIMITER\" \$CHECK \"\$CHECK_PIN\" \$SAVE_MASTER_PASSWORD \$CUSTOM_MASTER_PASSWORD_VAR \"\$1\" \$REMOVE_FROM_HISTORY \$PIPE_OUTPUT \"\$PIPE_COMMAND\"
+
+
 "
         if [[ ! -d "./templates" ]]; then
         mkdir "templates"
@@ -196,10 +213,14 @@ REMOVE_FROM_HISTORY=${RM_HIST}
         LPCM_PATH=$(realpath $0)
         LPCM_DIR=$(dirname ${LPCM_PATH})
 
+        #echo "PATH:$LPCM_PATH"
+        #echo "DIR:$LPCM_DIR"
 
         if  [[  -f "$LPCM_DIR/templates/$2" ]]; then
 
-
+        SITE=$3
+        LOGIN=$4
+        SAVE_PATH=$5
 
         if [[ $3 == "" ]];then
 
@@ -227,25 +248,43 @@ REMOVE_FROM_HISTORY=${RM_HIST}
             read -p "Save path: " SAVE_PATH
 
         else
-
-            SAVE_PATH=$(echo $5 | sed 's_/_\\/_g')
+            test
+            #SAVE_PATH=$(echo $5 | sed 's_/_\\/_g')
 
         fi
 
         SAVE_PATH_TMP="${SAVE_PATH}.tmp"
 
-        cp "$LPCM_DIR/templates/$2" ${SAVE_PATH_TMP}
+        parent_dir=$(dirname ${SAVE_PATH})
+
+        if [[ ! -d "$parent_dir" ]]; then
+            echo "$parent_dir"
+            mkdir -p "$parent_dir"
+
+        fi
+
+        cp "$LPCM_DIR/templates/$2" "./"${SAVE_PATH_TMP}
 
         sed -i "s/{SITE}/$SITE/g" ${SAVE_PATH_TMP}
         sed -i "s/{LOGIN}/$LOGIN/g" ${SAVE_PATH_TMP}
 
-        echo "PATH $LPCM_PATH"
+        #echo "PATH $LPCM_PATH"
+
+
+
         sed -i "s#{PATH}#$LPCM_PATH#g" ${SAVE_PATH_TMP}
+
+        parent_dir=$(dirname ${SAVE_PATH})
+
 
         cp ${SAVE_PATH_TMP} ${SAVE_PATH}
         rm ${SAVE_PATH_TMP}
         chmod u+x ${SAVE_PATH}
+        chmod o-rwx ${SAVE_PATH}
 
+        else
+
+        echo "not template named $2"
 
         fi
     fi
@@ -273,10 +312,34 @@ elif [[ ${METHOD} == "generate" ]]; then
 
     RM_HIST=${17}
 
+    PIPE=${18}
+    PIPE_COMMAND=${19}
 
     if [[ $RM_HIST != 0 ]]; then
 
-        echo "RM_HIST"
+        CUR_HIST_ENTRY_INDEX=$(history 1 | awk '{print $1}')
+        CUR_HIST_ENTRY_START=$(history 1 | cut --delimiter=' ' -f 5-6)
+        CUR_HIST_ENTRY_END=$(history 1 | cut --delimiter=' ' -f 7-)
+        if [[ $CUR_HIST_ENTRY_END != "" ]]; then
+
+            CUR_HIST_ENTRY_END=$(echo "$CUR_HIST_ENTRY_END" | replace $MPWD "")
+
+        fi
+
+
+        if [[ $RM_HIST == 2 && $MPWD != "" ||   $RM_HIST =~ ^[13]$ ]]; then
+            history -d $CUR_HIST_ENTRY_INDEX
+
+            if [[ $RM_HIST == 3 ]]; then
+
+                #TODO FIX
+                history -s ". $CUR_HIST_ENTRY_START$CUR_HIST_ENTRY_END"
+
+            fi
+
+        fi
+
+
 
     fi
 
@@ -325,7 +388,6 @@ elif [[ ${METHOD} == "generate" ]]; then
 
         fi
 
-
     CHECKED=$(lesspass check check "$MPWD" -L5 -d)
 
 
@@ -351,20 +413,64 @@ elif [[ ${METHOD} == "generate" ]]; then
 
 
 
+        if [[ $SALT == 1 ]]; then
 
+            read -p "Enter salt: " -s
+            echo
+            SITE=$SITE$DELIMITER$REPLY
+            #echo "$SITE"
+        fi
+
+        LESSPASS_ARGS=""
+        #LESSPASS_ARGS="$SITE $LOGIN \"$MPWD\""
+
+        if [[ $SYMBOLS == 1 ]]; then
+            LESSPASS_ARGS="$LESSPASS_ARGS -s"
+        fi
+        if [[ $LOWER == 1 ]]; then
+            LESSPASS_ARGS="$LESSPASS_ARGS -l"
+        fi
+        if [[ $UPPER == 1 ]]; then
+            LESSPASS_ARGS="$LESSPASS_ARGS -u"
+        fi
+        if [[ $DIGITS == 1 ]]; then
+            LESSPASS_ARGS="$LESSPASS_ARGS -d"
+        fi
+        if [[ $LENGTH != "" ]]; then
+            LESSPASS_ARGS="$LESSPASS_ARGS -L$LENGTH"
+        fi
+
+
+        LESSPASS_ARGS_NO_COPY="$LESSPASS_ARGS"
+
+        if [[ $COPY == 1 ]]; then
+            LESSPASS_ARGS="$LESSPASS_ARGS -c"
+        fi
+
+
+        if [[ $PIPE == 0 || $PIPE == 2 || $PIPE == "" ]]; then
+            #echo "$LESSPASS_ARGS_NO_COPY"
+            lesspass "$SITE" "$LOGIN" "$MPWD" $LESSPASS_ARGS
+
+
+        fi
+
+        if [[ $PIPE == 1 || $PIPE == 2 ]]; then
+                #echo "$LESSPASS_ARGS_NO_COPY"
+                lesspass "$SITE" "$LOGIN" "$MPWD" $LESSPASS_ARGS_NO_COPY | $PIPE_COMMAND
+
+        fi
 
 
     fi
 
 
 
-    echo "generate"
-
 
 else
 
-
-    echo "Path:"$(realpath $0)
+    test
+    #echo "Path:"$(realpath $0)
 
 
 fi
